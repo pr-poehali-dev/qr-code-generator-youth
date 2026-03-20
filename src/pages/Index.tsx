@@ -1,54 +1,21 @@
 import { useState, useRef, useEffect } from "react";
+import QRCodeLib from "qrcode";
 import Icon from "@/components/ui/icon";
 
 function QRMatrix({ value, size = 220 }: { value: string; size?: number }) {
-  const cells = 25;
-  const cell = size / cells;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const hash = (s: string, salt: number) => {
-    let h = 5381;
-    for (let i = 0; i < s.length; i++) {
-      h = ((h << 5) + h + s.charCodeAt(i) + salt) | 0;
-    }
-    return Math.abs(h);
-  };
+  useEffect(() => {
+    if (!canvasRef.current || !value) return;
+    QRCodeLib.toCanvas(canvasRef.current, value, {
+      width: size,
+      margin: 2,
+      color: { dark: "#0D1621", light: "#ffffff" },
+      errorCorrectionLevel: "M",
+    });
+  }, [value, size]);
 
-  const isFinderPattern = (r: number, c: number) => {
-    const inTL = r < 8 && c < 8;
-    const inTR = r < 8 && c >= cells - 8;
-    const inBL = r >= cells - 8 && c < 8;
-    if (inTL) return (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4));
-    if (inTR) return (r === 0 || r === 6 || c === cells - 1 || c === cells - 7 || (r >= 2 && r <= 4 && c >= cells - 5 && c <= cells - 3));
-    if (inBL) return (r === cells - 1 || r === cells - 7 || c === 0 || c === 6 || (r >= cells - 5 && r <= cells - 3 && c >= 2 && c <= 4));
-    return false;
-  };
-
-  const matrix: boolean[][] = Array.from({ length: cells }, (_, r) =>
-    Array.from({ length: cells }, (_, c) => {
-      if (r < 8 && c < 8) return isFinderPattern(r, c);
-      if (r < 8 && c >= cells - 8) return isFinderPattern(r, c);
-      if (r >= cells - 8 && c < 8) return isFinderPattern(r, c);
-      if (r === 6) return c % 2 === 0;
-      if (c === 6) return r % 2 === 0;
-      return (hash(value, r * 37 + c * 13) % 2) === 0;
-    })
-  );
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <rect width={size} height={size} fill="white" />
-      {matrix.map((row, r) =>
-        row.map((filled, c) =>
-          filled ? (
-            <rect key={`${r}-${c}`} x={c * cell + 0.5} y={r * cell + 0.5}
-              width={cell - 1} height={cell - 1} fill="#0D1621" rx="0.5" />
-          ) : null
-        )
-      )}
-      <rect x={size / 2 - 18} y={size / 2 - 18} width={36} height={36} rx={4} fill="white" />
-      <text x={size / 2} y={size / 2 + 8} textAnchor="middle" fontSize="20" fontWeight="bold" fill="#1A3C6A">СБП</text>
-    </svg>
-  );
+  return <canvas ref={canvasRef} width={size} height={size} style={{ display: "block" }} />;
 }
 
 function formatPhone(val: string) {
@@ -106,16 +73,13 @@ export default function Index() {
   };
 
   const handleDownload = () => {
-    const svg = qrRef.current?.querySelector("svg");
-    if (!svg) return;
-    const data = new XMLSerializer().serializeToString(svg);
-    const blob = new Blob([data], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
+    const canvas = qrRef.current?.querySelector("canvas");
+    if (!canvas) return;
+    const url = canvas.toDataURL("image/png");
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sbp-qr-${form.name.split(" ")[0]}.svg`;
+    a.download = `sbp-qr-${form.name.split(" ")[0]}.png`;
     a.click();
-    URL.revokeObjectURL(url);
   };
 
   const handleReset = () => {
