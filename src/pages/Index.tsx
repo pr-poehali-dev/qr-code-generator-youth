@@ -39,7 +39,7 @@ function formatAmount(val: string) {
 }
 
 export default function Index() {
-  const [form, setForm] = useState({ phone: "", card: "", name: "", amount: "" });
+  const [form, setForm] = useState({ phone: "", card: "", name: "", amount: "", comment: "" });
   const [generated, setGenerated] = useState(false);
   const [copied, setCopied] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -64,7 +64,21 @@ export default function Index() {
     setGenerated(true);
   };
 
-  const qrPayload = `ST00012|Name=${form.name.trim()}|PersonalAcc=${cardRaw}|BankName=Сбербанк|BIC=044525225|Phone=${phoneRaw}${form.amount ? `|Sum=${form.amount}00` : ""}`;
+  // Формат ГОСТ Р 56042-2014 (ST00012) — стандарт ЦБ РФ для СБП-переводов физлицам
+  // Поддерживается Сбербанком, СберKids и другими банками-участниками СБП
+  const amountKopecks = form.amount ? String(Number(form.amount) * 100) : "";
+  const qrPayload = [
+    "ST00012",
+    `Name=${form.name.trim()}`,
+    `PersonalAcc=${cardRaw}`,
+    `BankName=Сбербанк России`,
+    `BIC=044525225`,
+    `CorrespAcc=30101810400000000225`,
+    `PayeeINN=7707083893`,
+    `Phone=+7${phoneRaw.slice(1)}`,
+    form.amount ? `Sum=${amountKopecks}` : "",
+    form.comment ? `Purpose=${form.comment.trim()}` : "",
+  ].filter(Boolean).join("|");
 
   const handleCopy = () => {
     navigator.clipboard.writeText(qrPayload);
@@ -85,7 +99,7 @@ export default function Index() {
   const handleReset = () => {
     setGenerated(false);
     setErrors({});
-    setForm({ phone: "", card: "", name: "", amount: "" });
+    setForm({ phone: "", card: "", name: "", amount: "", comment: "" });
   };
 
   return (
@@ -213,6 +227,36 @@ export default function Index() {
                   </div>
                 </div>
 
+                {/* Назначение платежа */}
+                <div>
+                  <label className="block text-[10px] text-[rgba(180,190,210,0.55)] tracking-widest uppercase mb-2">
+                    Назначение платежа <span className="normal-case tracking-normal">(необязательно)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.comment}
+                    onChange={(e) => setForm({ ...form, comment: e.target.value })}
+                    placeholder="Перевод за услуги / подарок"
+                    className="w-full rounded px-4 py-3 text-sm bg-[#0D1621] border border-[rgba(201,168,76,0.18)] focus:border-[rgba(201,168,76,0.55)] transition-all outline-none text-white placeholder:text-[rgba(180,190,210,0.25)]"
+                  />
+                </div>
+
+                {/* Инфо о формате */}
+                <div className="rounded-lg border border-[rgba(201,168,76,0.15)] bg-[rgba(201,168,76,0.05)] p-4">
+                  <div className="flex gap-3">
+                    <Icon name="Info" size={14} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-xs text-[rgba(180,190,210,0.8)] font-medium">Как сканировать QR-код</p>
+                      <p className="text-xs text-[rgba(180,190,210,0.5)] leading-relaxed">
+                        Откройте <strong className="text-[rgba(180,190,210,0.75)]">Сбербанк Онлайн</strong> или <strong className="text-[rgba(180,190,210,0.75)]">СберKids</strong> → вкладка «Платежи» → иконка QR-кода → наведите камеру
+                      </p>
+                      <p className="text-xs text-[rgba(180,190,210,0.4)] mt-1">
+                        Формат: ГОСТ Р 56042-2014 · БИК 044525225 · Сбербанк России
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-3 pt-1">
                   <button
                     type="submit"
@@ -302,10 +346,21 @@ export default function Index() {
                         <span className="text-lg font-semibold text-[#C9A84C]">{formatAmount(form.amount)} ₽</span>
                       </div>
                     )}
+                    {form.comment && (
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-[#0D1621]/60">
+                        <Icon name="FileText" size={13} className="text-[#C9A84C] flex-shrink-0" />
+                        <div>
+                          <p className="text-[10px] text-[rgba(180,190,210,0.4)] uppercase tracking-wider">Назначение</p>
+                          <p className="text-sm text-white">{form.comment}</p>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 p-2.5 rounded border border-[rgba(201,168,76,0.15)]">
-                      <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/42/Sberbank_Logo_2020.svg/100px-Sberbank_Logo_2020.svg.png"
-                        alt="Сбербанк" className="h-4 object-contain opacity-80" />
-                      <span className="text-xs text-[rgba(180,190,210,0.5)]">Сбербанк · СБП</span>
+                      <Icon name="Building2" size={13} className="text-[#C9A84C]" />
+                      <div>
+                        <span className="text-xs text-white font-medium">Сбербанк России</span>
+                        <span className="text-xs text-[rgba(180,190,210,0.4)] ml-2">БИК 044525225</span>
+                      </div>
                     </div>
                   </div>
 
