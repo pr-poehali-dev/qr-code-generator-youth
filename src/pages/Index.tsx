@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import QRCodeLib from "qrcode";
+import { jsPDF } from "jspdf";
 import Icon from "@/components/ui/icon";
 
 function QRMatrix({ value, size = 220 }: { value: string; size?: number }) {
@@ -86,14 +87,71 @@ export default function Index() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownload = () => {
-    const canvas = qrRef.current?.querySelector("canvas");
+  const getCanvas = () => qrRef.current?.querySelector("canvas") ?? null;
+  const baseName = `sbp-qr-${form.name.split(" ")[0] || "payment"}`;
+
+  const handleDownloadPng = () => {
+    const canvas = getCanvas();
     if (!canvas) return;
-    const url = canvas.toDataURL("image/png");
     const a = document.createElement("a");
-    a.href = url;
-    a.download = `sbp-qr-${form.name.split(" ")[0]}.png`;
+    a.href = canvas.toDataURL("image/png");
+    a.download = `${baseName}.png`;
     a.click();
+  };
+
+  const handleDownloadWebp = () => {
+    const canvas = getCanvas();
+    if (!canvas) return;
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/webp", 0.95);
+    a.download = `${baseName}.webp`;
+    a.click();
+  };
+
+  const handleDownloadPdf = () => {
+    const canvas = getCanvas();
+    if (!canvas) return;
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const qrSize = 80;
+    const x = (pageW - qrSize) / 2;
+    const y = 30;
+
+    pdf.setFontSize(16);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("СБП — Платёжный QR-код", pageW / 2, 20, { align: "center" });
+
+    pdf.addImage(imgData, "PNG", x, y, qrSize, qrSize);
+
+    const infoY = y + qrSize + 12;
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(80, 80, 80);
+
+    const lines = [
+      ["Получатель:", form.name],
+      ["Телефон:", form.phone],
+      ["Карта:", form.card],
+      ...(form.amount ? [["Сумма:", `${formatAmount(form.amount)} руб.`]] : []),
+      ...(form.comment ? [["Назначение:", form.comment]] : []),
+      ["Банк:", "Сбербанк России (БИК 044525225)"],
+    ];
+
+    lines.forEach(([label, value], i) => {
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(40, 40, 40);
+      pdf.text(label, pageW / 2 - 40, infoY + i * 7, { align: "left" });
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(80, 80, 80);
+      pdf.text(value, pageW / 2 - 5, infoY + i * 7, { align: "left" });
+    });
+
+    pdf.setFontSize(8);
+    pdf.setTextColor(150, 150, 150);
+    pdf.text("Формат: ГОСТ Р 56042-2014 · Сформировано СБПPay", pageW / 2, 280, { align: "center" });
+
+    pdf.save(`${baseName}.pdf`);
   };
 
   const handleReset = () => {
@@ -365,19 +423,28 @@ export default function Index() {
                   </div>
 
                   {/* Actions */}
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
                     <button onClick={handleCopy}
-                      className={`py-2.5 rounded text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 border
+                      className={`w-full py-2.5 rounded text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-1.5 border
                         ${copied ? "border-green-500/40 bg-green-500/10 text-green-400" : "border-[rgba(201,168,76,0.2)] text-[rgba(180,190,210,0.6)] hover:text-white hover:border-[rgba(201,168,76,0.45)]"}`}>
                       <Icon name={copied ? "Check" : "Copy"} size={12} />
-                      {copied ? "Скопировано" : "Копировать"}
+                      {copied ? "Скопировано" : "Копировать строку данных"}
                     </button>
-                    <button onClick={handleDownload}
-                      className="py-2.5 rounded text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-1.5"
-                      style={{ background: "linear-gradient(135deg,#C9A84C,#E8C76A)", color: "#0D1621", fontWeight: 600 }}>
-                      <Icon name="Download" size={12} />
-                      Скачать
-                    </button>
+                    <p className="text-[10px] text-[rgba(180,190,210,0.35)] uppercase tracking-widest text-center">Скачать QR-код</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: "PNG", handler: handleDownloadPng, icon: "Image" },
+                        { label: "WebP", handler: handleDownloadWebp, icon: "Image" },
+                        { label: "PDF", handler: handleDownloadPdf, icon: "FileText" },
+                      ].map(({ label, handler, icon }) => (
+                        <button key={label} onClick={handler}
+                          className="py-2.5 rounded text-xs font-semibold tracking-wider uppercase transition-all flex flex-col items-center justify-center gap-1"
+                          style={{ background: "linear-gradient(135deg,#C9A84C,#E8C76A)", color: "#0D1621" }}>
+                          <Icon name={icon} fallback="Download" size={14} />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ) : (
