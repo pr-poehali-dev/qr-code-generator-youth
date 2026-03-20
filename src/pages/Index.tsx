@@ -54,6 +54,7 @@ export default function Index() {
     if (phoneRaw.length !== 11) e.phone = "Введите полный номер телефона";
     if (cardRaw.length !== 16) e.card = "Номер карты должен содержать 16 цифр";
     if (form.name.trim().split(" ").length < 2) e.name = "Укажите имя и фамилию";
+    if (!form.amount || Number(form.amount) <= 0) e.amount = "Укажите сумму перевода";
     return e;
   };
 
@@ -262,10 +263,10 @@ export default function Index() {
                   {errors.card && <p className="text-xs text-red-400 mt-1 flex items-center gap-1"><Icon name="AlertCircle" size={11} />{errors.card}</p>}
                 </div>
 
-                {/* Сумма (необязательно) */}
+                {/* Сумма */}
                 <div>
                   <label className="block text-[10px] text-[rgba(180,190,210,0.55)] tracking-widest uppercase mb-2">
-                    Сумма <span className="normal-case tracking-normal">(необязательно)</span>
+                    Сумма (₽) *
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[rgba(201,168,76,0.45)] text-sm font-mono">₽</span>
@@ -273,9 +274,10 @@ export default function Index() {
                       type="text"
                       inputMode="numeric"
                       value={form.amount}
-                      onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/\D/g, "") })}
+                      onChange={(e) => { setForm({ ...form, amount: e.target.value.replace(/\D/g, "") }); setErrors({ ...errors, amount: "" }); }}
                       placeholder="0"
-                      className="w-full rounded pl-8 pr-4 py-3 text-sm font-mono bg-[#0D1621] border border-[rgba(201,168,76,0.18)] focus:border-[rgba(201,168,76,0.55)] transition-all outline-none text-white placeholder:text-[rgba(180,190,210,0.25)]"
+                      className={`w-full rounded pl-8 pr-4 py-3 text-sm font-mono bg-[#0D1621] border transition-all outline-none text-white placeholder:text-[rgba(180,190,210,0.25)]
+                        ${errors.amount ? "border-red-500/60" : "border-[rgba(201,168,76,0.18)] focus:border-[rgba(201,168,76,0.55)]"}`}
                     />
                     {form.amount && (
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-[#C9A84C]">
@@ -283,6 +285,7 @@ export default function Index() {
                       </span>
                     )}
                   </div>
+                  {errors.amount && <p className="text-xs text-red-400 mt-1 flex items-center gap-1"><Icon name="AlertCircle" size={11} />{errors.amount}</p>}
                 </div>
 
                 {/* Назначение платежа */}
